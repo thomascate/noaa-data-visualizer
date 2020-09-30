@@ -1,0 +1,209 @@
+resume download to catch up
+
+Get final byte size
+ curl -I https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/AE000041196.csv
+HTTP/1.1 200 OK
+Date: Mon, 28 Sep 2020 21:14:51 GMT
+Server: Apache
+Strict-Transport-Security: max-age=31536000
+Last-Modified: Mon, 28 Sep 2020 14:19:38 GMT
+ETag: "2497cf-5b0605b42b280"
+Accept-Ranges: bytes
+Content-Length: 2398159
+Content-Type: text/csv
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: X-Requested-With, Content-Type
+Connection: close
+
+Get start byte size
+cat /Users/thomascate/Projects/noaa-data/raw/ghcnd_all/daily_csv/AE000041196.csv | wc -c
+ 2393755
+
+Get caught up
+curl -XGET -H "Range: bytes=2393755-2398159"  https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/AE000041196.csv -o testfile
+
+
+
+Check to make sure vars are cleared before docs are inserted
+
+{
+        "_index" : "noaa-data-1945",
+        "_type" : "_doc",
+        "_id" : "2f6e21abca39a2697e59329161788c5eeb5e303f317716bb0479b577",
+        "_score" : null,
+        "_source" : {
+          "STATION" : "USC00514634",
+          "DATE" : "1945-01-01",
+          "LATITUDE" : 20.65,
+          "LONGITUDE" : -156.06667,
+          "ELEVATION" : 78.9,
+          "NAME" : "KIPAHULU 258, HI US",
+          "PRCP" : 0,
+          "PRCP_ATTRIBUTES" : "P,,6,",
+          "SNOW" : "",
+          "SNOW_ATTRIBUTES" : "",
+          "SNWD" : "",
+          "SNWD_ATTRIBUTES" : "",
+          "TMAX" : "",
+          "TMAX_ATTRIBUTES" : "",
+          "TMIN" : "",
+          "TMIN_ATTRIBUTES" : "",
+          "DAPR" : "",
+          "DAPR_ATTRIBUTES" : "",
+          "MDPR" : "",
+          "MDPR_ATTRIBUTES" : "",
+          "TOBS" : "",
+          "TOBS_ATTRIBUTES" : "",
+          "WT03" : "",
+          "WT03_ATTRIBUTES" : "",
+          "WT08" : "",
+          "WT08_ATTRIBUTES" : "",
+          "WT11" : "",
+          "WT11_ATTRIBUTES" : "",
+          "location" : [
+            -156.06667,
+            20.65
+          ],
+          "TMAX_C" : 176.7,
+          "TMAX_F" : 350.06,
+          "TMIN_C" : 17.2,
+          "TMIN_F" : 62.959999999999994,
+          "TOBS_C" : 23.3,
+          "TOBS_F" : 73.94
+        },
+        "sort" : [
+          350.06
+        ]
+      },
+
+
+split *_ATTRIBUTES into three fields
+Table 4 doesn't seem to exist in my data
+
+https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf
+
+Measurement Flag , Quality Flag , Quality Flag
+Only one option, or blank per field
+
+
+Example entry
+TMAX_ATTRIBUTES: "H,,U"
+
+turn this into
+
+TMAX_ATTRIBUTES: {
+  Measurement_Flag: "H",
+  Quality_Flag: "",
+  Source_Flag: "U"
+}
+
+
+Allows queries like
+TMAX_ATTRIBUTES.Quality_Flag.keyword = ""
+to find all good quality data.
+
+
+Table 1 (Measurement Flag/Attribute)
+Blank = no measurement information applicable
+ A = value in precipitation or snow is a multi-day total, accumulated since last measurement
+ (used on Daily Form pdf file)
+ B = precipitation total formed from two twelve-hour totals
+ D = precipitation total formed from four six-hour totals
+ H = represents highest or lowest hourly temperature (TMAX or TMIN)
+ or average of hourly values (TAVG)
+ K = converted from knots
+ L = temperature appears to be lagged with respect to reported
+ hour of observation
+ O = converted from oktas
+ P = identified as "missing presumed zero" in DSI 3200 and 3206
+ T = trace of precipitation, snowfall, or snow depth
+ W = converted from 16-point WBAN code (for wind direction)
+Table 2 (Quality Flag/Attribute)
+Blank = did not fail any quality assurance check
+ D = failed duplicate check
+ G = failed gap check
+ I = failed internal consistency check
+ K = failed streak/frequent-value check
+ L = failed check on length of multiday period
+ M = failed mega-consistency check
+ N = failed naught check
+ O = failed climatological outlier check
+ R = failed lagged range check
+ S = failed spatial consistency check
+ T = failed temporal consistency check
+ W = temperature too warm for snow
+ X = failed bounds check
+ Z = flagged as a result of an official Datzilla investigation
+Table 3 (Source Flag/Attribute)
+Blank = No source (i.e., data value missing)
+ 0 = U.S. Cooperative Summary of the Day (NCDC DSI-3200)
+ 6 = CDMP Cooperative Summary of the Day (NCDC DSI-3206)
+ 7 = U.S. Cooperative Summary of the Day -- Transmitted
+ via WxCoder3 (NCDC DSI-3207)
+ A = U.S. Automated Surface Observing System (ASOS)
+ real-time data (since January 1, 2006)
+ a = Australian data from the Australian Bureau of Meteorology
+ B = U.S. ASOS data for October 2000-December 2005 (NCDC DSI-3211)
+ b = Belarus update
+ C = Environment Canada
+ E = European Climate Assessment and Dataset (Klein Tank et al., 2002)
+ F = U.S. Fort data
+ G = Official Global Climate Observing System (GCOS) or other government-supplied data
+ H = High Plains Regional Climate Center real-time data
+ I = International collection (non U.S. data received through personal contacts)
+ K = U.S. Cooperative Summary of the Day data digitized from paper observer forms
+ (from 2011 to present)
+ M = Monthly METAR Extract (additional ASOS data)
+ N = Community Collaborative Rain, Hail,and Snow (CoCoRaHS)
+ Q = Data from several African countries that had been "quarantined", that is, withheld from
+ public release until permission was granted from the respective meteorological services
+ R = NCDC Reference Network Database (Climate Reference Network
+ and Historical Climatology Network-Modernized)
+ r = All-Russian Research Institute of Hydrometeorological Information-World Data Center
+ S = Global Summary of the Day (NCDC DSI-9618)
+ NOTE: "S" values are derived from hourly synoptic reports
+ exchanged on the Global Telecommunications System (GTS).
+ Daily values derived in this fashion may differ significantly
+ from "true" daily data, particularly for precipitation(i.e., use with caution).
+ s = China Meteorological Administration/National Meteorological Information Center/
+ Climate Data Center (http://cdc.cma.gov.cn)
+ T = SNOwpack TELemtry (SNOTEL) data obtained from the Western Regional Climate Center
+ U = Remote Automatic Weather Station (RAWS) data obtained from the Western
+ Regional Climate Center
+ u = Ukraine update
+ W = WBAN/ASOS Summary of the Day from NCDC's Integrated Surface Data (ISD).
+ X = U.S. First-Order Summary of the Day (NCDC DSI-3210)
+ Z = Datzilla official additions or replacements
+ z = Uzbekistan update
+
+
+
+Find query by indexed geo doc, location field needs to be consistently named between both indices
+
+GET noaa-data-*/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "geo_shape": {
+          "location": {
+            "indexed_shape": {
+              "index": "locale_metadata",
+              "id": "l90XR3QBMJ2F2HpiB4Ff",
+              "path": "location"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+43.616
+-74.033
+
+
+"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","SNOW","SNOW_ATTRIBUTES","SNWD","SNWD_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES","TMIN","TMIN_ATTRIBUTES","DAPR","DAPR_ATTRIBUTES","MDPR","MDPR_ATTRIBUTES","TOBS","TOBS_ATTRIBUTES","WDMV","WDMV_ATTRIBUTES","WESD","WESD_ATTRIBUTES","WT01","WT01_ATTRIBUTES","WT03","WT03_ATTRIBUTES","WT04","WT04_ATTRIBUTES","WT05","WT05_ATTRIBUTES","WT06","WT06_ATTRIBUTES","WT08","WT08_ATTRIBUTES","WT09","WT09_ATTRIBUTES","WT11","WT11_ATTRIBUTES","WT14","WT14_ATTRIBUTES","WT16","WT16_ATTRIBUTES","WT18","WT18_ATTRIBUTES"
+
+
