@@ -11,7 +11,7 @@ import time
 import yaml
 import threading
 import queue
-from multiprocessing import Process
+from multiprocessing import Process, active_children
 
 
 logging.basicConfig(filename='insert_daily.log',level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -195,49 +195,44 @@ def generate_document(fileName):
 
   return(uploadDocument)
 
-def upload_file():
-  while True:
-    if fileQueue.empty() == True:
-      print("nothing left to do")
-      return 
+def upload_file(fileName):
 
-    fileName = fileQueue.get()
+  logging.info(f"function: upload_file, fileName: {fileName}, pid: {os.getpid()}")
+  try:
+    print(f"get upload document for {fileName}")
+    uploadDocument = generate_document(fileName)
 
-    try:
-      print(f"get upload document for {fileName}")
-      uploadDocument = generate_document(fileName)
+    if uploadDocument == "":
+     return 
 
-      if uploadDocument == "":
-        continue
+    postChunk = ""
+    docNumber = 0
 
-      postChunk = ""
-      docNumber = 0
+    for line in uploadDocument.splitlines():
+      docNumber = docNumber+1
+      postChunk+=line
+      postChunk+="\n"
+      docCount = postChunk.count('\n')
 
-      for line in uploadDocument.splitlines():
-        docNumber = docNumber+1
-        postChunk+=line
-        postChunk+="\n"
-        docCount = postChunk.count('\n')
-
-        if docCount == 500:
-          print(f"found {docCount} lines, let's post it")
-          insert_data(config, postChunk, docNumber/2, fileName)
-          postChunk = ""
-
-      if len(postChunk) > 0:
+      if docCount == 500:
         print(f"found {docCount} lines, let's post it")
         insert_data(config, postChunk, docNumber/2, fileName)
         postChunk = ""
 
-      open(fileName + ".done", 'a').close()
+    if len(postChunk) > 0:
+      print(f"found {docCount} lines, let's post it")
+      insert_data(config, postChunk, docNumber/2, fileName)
+      postChunk = ""
+
+    open(fileName + ".done", 'a').close()
    #   attributes = {}
    #   attributes['path'] = fileName
    #   attributes['name'] = os.path.basename(fileName)
    #   attributes['size'] = os.path.getsize(fileName)
    #   print(attributes)
 
-    except Exception as e:
-      print(f"error on {fileName} {str(e)}")
+  except Exception as e:
+    print(f"error on {fileName} {str(e)}")
 
 
 files = glob.glob( config['ghcndLocation'] + "/*.csv")
@@ -250,12 +245,28 @@ for file in files:
 
 print(fileQueue.qsize())
 
-for i in range(config['Processes']):
-  p = Process(target=upload_file, args=())
-  activeProcesses.append(p)
-  p.start()
+while True:
+  if fileQueue.empty() == False:
+#    print(active_children())
+    if len(active_children()) < config['Processes']:
+      fileName = fileQueue.get()
+      logging.info(f"active_children: {len(active_children())}, fileName: {fileName}, files_left: {fileQueue.qsize()}")
+      p = Process(target=upload_file, args=(fileName,))
+      p.start()
 
-for activeProcess in activeProcesses:
-  activeProcess.join()
+
+p.join()
+#while len(active_children) > 0:
+#  sleep
+
+
+
+#for i in range(config['Processes']):
+#  p = Process(target=upload_file, args=())
+#  activeProcesses.append(p)
+#  p.start()
+
+#for activeProcess in activeProcesses:
+#  activeProcess.join()
 
 exit()
