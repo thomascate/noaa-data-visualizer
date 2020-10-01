@@ -253,7 +253,7 @@ while True:
       logging.info(f"active_children: {len(active_children())}, fileName: {fileName}, files_left: {fileQueue.qsize()}")
       p = Process(target=upload_file, args=(fileName,))
       p.start()
-
+  time.sleep(0.01)
 
 p.join()
 #while len(active_children) > 0:
