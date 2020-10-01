@@ -1,0 +1,5 @@
+---
+"elasticURL": "https://127.0.0.1:9200"
+"sslVerify": False
+"ghcndLocation": "/media/fileserv/daily_csv/"
+"logfile": "insert_daily.log 

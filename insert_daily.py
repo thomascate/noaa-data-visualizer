@@ -8,15 +8,38 @@ import hashlib
 import json
 import logging
 import time
+import yaml
 
 logging.basicConfig(filename='insert_daily.log',level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+configFile = "config.yaml"
 
-elasticURL = "https://10.1.1.31:9200/_bulk"
-elasticUser = "admin"
-elasticPass = ""
-elasticHeader = {'Content-Type': 'application/x-ndjson'}
-requests.packages.urllib3.disable_warnings()
-files = glob.glob("/Users/thomascate/Projects/noaa-data/raw/ghcnd_all/daily_csv/*.csv")
+# Try to load config file and exit on invalid yaml or OS error
+try:
+  with open( configFile, "r" ) as f:
+    try:
+      config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+      logging.fatal(f"Failed to load config file: {configFile}, Error: {e}" )
+      print(e)
+      exit(1)
+
+except EnvironmentError as e:
+  logging.fatal(f"Failed to load config file: {configFile}, Error: {e}" )
+  print(e)
+  exit(1)
+
+config['elasticHeader'] = {'Content-Type': 'application/x-ndjson'}
+
+# Grab secrets from env
+config['elasticUser'] = os.environ.get('NOAA_ELASTIC_USER')
+config['elasticPass'] = os.environ.get('NOAA_ELASTIC_PASSWORD')
+
+if config['sslVerify'] is False:
+  requests.packages.urllib3.disable_warnings()
+
+files = glob.glob( config['ghcndLocation'] + "/*.csv")
+
+print(config)
 
 def contains_int(n):
     try:
@@ -119,7 +142,7 @@ for file in files:
                 print(f"Trying attempt {attempt}")
                 try:
                     time.sleep(attempt ** 2)
-                    r = requests.post(elasticURL, verify=False, auth=(elasticUser, elasticPass), data=postChunk, headers=elasticHeader)
+                    r = requests.post(config['elasticURL'] + "/_bulk", verify=config['sslVerify'], auth=(config['elasticUser'], config['elasticPass']), data=postChunk, headers=config['elasticHeader'])
                     docCount = postChunk.count('\n')/2
                     docNumber = i/2
                     logging.info(f"docs: {docCount}, docNumber: {docNumber} code: {r.status_code}, attempt: {attempt}")
@@ -135,7 +158,8 @@ for file in files:
         for attempt in range(10):
             try:
                 time.sleep(attempt ** 2)
-                r = requests.post(elasticURL, verify=False, auth=(elasticUser, elasticPass), data=postChunk, headers=elasticHeader)
+#                r = requests.post(elasticURL, verify=False, auth=(elasticUser, elasticPass), data=postChunk, headers=elasticHeader)
+                r = requests.post(config['elasticURL'] + "/_bulk", verify=config['sslVerify'], auth=(config['elasticUser'], config['elasticPass']), data=postChunk, headers=config['elasticHeader'])
                 docCount = postChunk.count('\n')/2
                 docNumber = i/2
                 logging.info(f"docs: {docCount}, docNumber: {docNumber} code: {r.status_code}, attempt: {attempt}")
