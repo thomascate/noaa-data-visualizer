@@ -9,6 +9,7 @@ import json
 import logging
 import time
 import yaml
+import threading
 
 logging.basicConfig(filename='insert_daily.log',level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 configFile = "config.yaml"
@@ -141,6 +142,8 @@ for file in files:
     jsonEntry['location'].append(float(jsonEntry['LONGITUDE']))
     jsonEntry['location'].append(float(jsonEntry['LATITUDE']))
     idString = jsonEntry['STATION'] + jsonEntry['DATE']
+
+    # We want docID to be consistent, which means we can run this against duplicated data without getting duplicated entries in ES
     docID = hashlib.sha224(idString.encode('utf-8')).hexdigest()
     indexName = "noaa-data-" + jsonEntry['DATE'].replace('-','.')[0:4]
     uploadDocument+=json.dumps( { "index" : { "_index" : indexName, "_id" : docID } } )
@@ -156,13 +159,14 @@ for file in files:
      docNumber = docNumber+1
      postChunk+=line
      postChunk+="\n"
-     if postChunk.count('\n') == 500:
-        print("found 500 lines, let's post it")
+     docCount = postChunk.count('\n')
+     if docCount == 500:
+        print(f"found {docCount} lines, let's post it")
         insert_data(config, postChunk, docNumber/2)
         postChunk = ""
 
   if len(postChunk) > 0:
-    print(f"found {len(postChunk)} lines, let's post it")
+    print(f"found {docCount} lines, let's post it")
     insert_data(config, postChunk, docNumber/2)
     postChunk = ""
 
