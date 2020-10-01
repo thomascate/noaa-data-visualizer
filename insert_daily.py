@@ -39,6 +39,7 @@ if config['sslVerify'] is False:
 
 files = glob.glob( config['ghcndLocation'] + "/*.csv")
 
+# This is used to verify the source data type, so we can make sure it makes it to the correct type before being dumped to json.
 def contains_int(n):
   try:
     a = int(n)
@@ -54,6 +55,25 @@ def contains_float(n):
     return False
   else:
     return True
+
+def insert_data(config, postChunk, docNumber):
+  for attempt in range(10):
+    print(f"Trying attempt {attempt}")
+    try:
+      time.sleep(attempt ** 2)
+      r = requests.post(config['elasticURL'] + "/_bulk", verify=config['sslVerify'], auth=(config['elasticUser'], config['elasticPass']), data=postChunk, headers=config['elasticHeader'])
+      docCount = postChunk.count('\n')/2
+      logging.info(f"docs: {docCount}, docNumber: {docNumber} code: {r.status_code}, attempt: {attempt}")
+
+      if not r.status_code == 200:
+        raise Exception(f"insert failed code: {r.status_code}")
+        logging.error(f"error: {r.text}")
+      else:
+        return
+
+    except:
+      print(f"try failed {r.status_code}")
+      return
 
 # We need to track all fields that return in 10ths of a degree Celcius, so that we can later convert them to C and F.
 celciusFields = [
@@ -131,46 +151,19 @@ for file in files:
     i = i+1
 
   postChunk = ""
-  i = 0
+  docNumber = 0
   for line in uploadDocument.splitlines():
-     i = i+1
+     docNumber = docNumber+1
      postChunk+=line
      postChunk+="\n"
      if postChunk.count('\n') == 500:
         print("found 500 lines, let's post it")
-        for attempt in range(10):
-          print(f"Trying attempt {attempt}")
-          try:
-            time.sleep(attempt ** 2)
-            r = requests.post(config['elasticURL'] + "/_bulk", verify=config['sslVerify'], auth=(config['elasticUser'], config['elasticPass']), data=postChunk, headers=config['elasticHeader'])
-            docCount = postChunk.count('\n')/2
-            docNumber = i/2
-            logging.info(f"docs: {docCount}, docNumber: {docNumber} code: {r.status_code}, attempt: {attempt}")
-            if not r.status_code == 200:
-              raise Exception(f"insert failed code: {r.status_code}")
-            else:
-               postChunk = ""
-               break
-          except:
-            print(f"try failed {r.status_code}")
+        insert_data(config, postChunk, docNumber/2)
+        postChunk = ""
 
   if len(postChunk) > 0:
-    for attempt in range(10):
-      try:
-        time.sleep(attempt ** 2)
-        r = requests.post(config['elasticURL'] + "/_bulk", verify=config['sslVerify'], auth=(config['elasticUser'], config['elasticPass']), data=postChunk, headers=config['elasticHeader'])
-        docCount = postChunk.count('\n')/2
-        docNumber = i/2
-        logging.info(f"docs: {docCount}, docNumber: {docNumber} code: {r.status_code}, attempt: {attempt}")
-        if not r.status_code == 200:
-          raise Eception(f"insert failed code: {r.status_code}")
-        else:
-          postChunk = ""
-          break
-      except:
-        print('retry')
-
-  if r.status_code == 200:
-    open(file + ".old", 'a').close()
+    print(f"found {len(postChunk)} lines, let's post it")
+    insert_data(config, postChunk, docNumber/2)
+    postChunk = ""
 
 exit()
