@@ -11,6 +11,8 @@ import time
 import yaml
 import threading
 import queue
+from multiprocessing import Process
+
 
 logging.basicConfig(filename='insert_daily.log',level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 configFile = "config.yaml"
@@ -39,7 +41,7 @@ config['elasticPass'] = os.environ.get('NOAA_ELASTIC_PASSWORD')
 if config['sslVerify'] is False:
   requests.packages.urllib3.disable_warnings()
 
-config['threads'] = 4
+config['Processes'] = 8
 
 # This is used to verify the source data type, so we can make sure it makes it to the correct type before being dumped to json.
 def contains_int(n):
@@ -241,19 +243,19 @@ def upload_file():
 files = glob.glob( config['ghcndLocation'] + "/*.csv")
 
 fileQueue = queue.Queue()
-activeThreads = []
+activeProcesses = []
 
 for file in files:
   fileQueue.put(file)
 
 print(fileQueue.qsize())
 
-for i in range(config['threads']):
-  t = threading.Thread(target=upload_file, args=())
-  activeThreads.append(t)
-  t.start()
+for i in range(config['Processes']):
+  p = Process(target=upload_file, args=())
+  activeProcesses.append(p)
+  p.start()
 
-for activeThread in activeThreads:
-  activeThread.join()
+for activeProcess in activeProcesses:
+  activeProcess.join()
 
 exit()
