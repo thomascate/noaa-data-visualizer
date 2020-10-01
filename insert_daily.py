@@ -40,31 +40,31 @@ if config['sslVerify'] is False:
 files = glob.glob( config['ghcndLocation'] + "/*.csv")
 
 def contains_int(n):
-    try:
-        a = int(n)
-    except ValueError:
-        return False
-    else:
-        return True
+  try:
+    a = int(n)
+  except ValueError:
+    return False
+  else:
+    return True
 
 def contains_float(n):
-    try:
-        a = float(n)
-    except ValueError:
-        return False
-    else:
-        return True
+  try:
+    a = float(n)
+  except ValueError:
+    return False
+  else:
+    return True
 
 # We need to track all fields that return in 10ths of a degree Celcius, so that we can later convert them to C and F.
 celciusFields = [
-    "TAVG",
-    "TMAX",
-    "TMIN",
-    "MDTN",
-    "MDTX",
-    "MNPN",
-    "MXPN",
-    "TOBS"
+  "TAVG",
+  "TMAX",
+  "TMIN",
+  "MDTN",
+  "MDTX",
+  "MNPN",
+  "MXPN",
+  "TOBS"
 ]
 
 # We need to add key names of S[N,X][0-8][1-7] as the soil type and depth of the measurement is embedded in the key name.
